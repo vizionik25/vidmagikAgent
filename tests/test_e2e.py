@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 from starlette.testclient import TestClient
 import io
 
-import api.main as main
-from api.main import *
+import src.api.main as main
+from src.api.main import *
 
 @pytest.fixture(autouse=True)
 def cleanup():
@@ -65,9 +65,9 @@ def test_audio_io():
     with pytest.raises(FileNotFoundError): audio_file_clip("missing.wav")
     write_audiofile(aid, "temp.mp3")
 
-@patch("api.main.TextClip")
-@patch("api.main.CreditsClip")
-@patch("api.main.SubtitlesClip")
+@patch("src.api.main.TextClip")
+@patch("src.api.main.CreditsClip")
+@patch("src.api.main.SubtitlesClip")
 def test_special_clips(ms, mc, mt):
     mt.return_value = MagicMock()
     mc.return_value = MagicMock()
@@ -160,18 +160,18 @@ def test_tools_hit():
     tools_drawing_color_split([10,10], 5, 5, [0,0], [10,10], [0,0,0], [255,255,255])
 
 def test_max_clips():
-    from api.main import MAX_CLIPS, register_clip
+    from src.api.main import MAX_CLIPS, register_clip
     CLIPS.clear()
     for _ in range(MAX_CLIPS): register_clip(MagicMock())
     with pytest.raises(RuntimeError): register_clip(MagicMock())
 
 def test_prompts():
-    from api.main import slideshow_wizard, title_card_generator
+    from src.api.main import slideshow_wizard, title_card_generator
     slideshow_wizard(images=["a.jpg"], duration_per_image=5, transition_duration=1.0, resolution=[1920, 1080], fps=30)
     title_card_generator(text="hi", resolution=[1920, 1080])
-    from api.main import demonstrate_kaleidoscope
+    from src.api.main import demonstrate_kaleidoscope
 
-from api.custom_fx.kaleidoscope_cube import KaleidoscopeCube
+from src.api.custom_fx.kaleidoscope_cube import KaleidoscopeCube
 
 def test_kaleidoscope_cube():
     cid = color_clip([100,100], [255,0,0], duration=1)

@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from nicegui import ui
 
-# Ensure app/ is importable
-sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
+# Ensure src/app/ is importable
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "app"))
 
 
 _mock_mcp = MagicMock()
@@ -41,7 +41,7 @@ def patch_mcp_client():
         yield
 
 
-pytestmark = pytest.mark.nicegui_main_file(str(Path(__file__).parent.parent / "app" / "main.py"))
+pytestmark = pytest.mark.nicegui_main_file(str(Path(__file__).parent.parent / "src" / "app" / "main.py"))
 
 
 class TestPageRendering:

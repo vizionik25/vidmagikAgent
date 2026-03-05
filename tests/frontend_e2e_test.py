@@ -5,8 +5,8 @@ Covers:
 - app/mcp_client.py: MCPVideoClient lifecycle, tool schema conversion, _call_tool,
   download_video, run_agent (all branches of the agentic loop)
 - app/main.py: helper functions, settings, SYSTEM_PROMPT
-- api/custom_fx/: all custom effect classes
-- api/main.py (backend): all vfx/afx wrappers, audio composition, prompts,
+- src/api/custom_fx/: all custom effect classes
+- src/api/main.py (backend): all vfx/afx wrappers, audio composition, prompts,
   parse_args, main(), upload edge cases, check_installation
 """
 
@@ -23,8 +23,8 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 import pytest
 import numpy as np
 
-# Ensure the app/ directory is importable
-sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
+# Ensure the src/app/ directory is importable
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "app"))
 
 
 # ======================================================================
@@ -276,7 +276,7 @@ class TestRunAgent:
 
 with patch("mcp_client.MCPVideoClient") as _mc, patch("nicegui.app") as _ma:
     _mc.return_value = MagicMock()
-    from app import main as frontend_main
+    from src.app import main as frontend_main
 
 
 class TestHelpers:
@@ -301,7 +301,7 @@ class TestCheckForDownloads:
 
     def test_match_existing(self, tmp_path):
         f = tmp_path / "s.mp4"; f.write_text("x")
-        with patch.object(frontend_main, "MEDIA_DIR", tmp_path), patch("app.main.ui"):
+        with patch.object(frontend_main, "MEDIA_DIR", tmp_path), patch("src.app.main.ui"):
             frontend_main._check_for_downloads(MagicMock(), MagicMock(), f"Successfully wrote video to {f}")
 
     def test_match_missing(self):
@@ -310,7 +310,7 @@ class TestCheckForDownloads:
 class TestScanForShorts:
     def test_finds_files(self, tmp_path):
         (tmp_path / "short_1.mp4").write_text("x")
-        with patch.object(frontend_main, "MEDIA_DIR", tmp_path), patch("app.main.ui"):
+        with patch.object(frontend_main, "MEDIA_DIR", tmp_path), patch("src.app.main.ui"):
             frontend_main._scan_for_shorts(MagicMock(), MagicMock())
 
     def test_no_files(self, tmp_path):
@@ -329,7 +329,7 @@ class TestSystemPrompt:
 # ======================================================================
 
 from moviepy import ColorClip
-from api.custom_fx import AutoFraming, ChromaKey, CloneGrid, Matrix, QuadMirror, RGBSync
+from src.api.custom_fx import AutoFraming, ChromaKey, CloneGrid, Matrix, QuadMirror, RGBSync
 
 
 def _clip(w=120, h=120, dur=0.2, fps=5):
@@ -409,8 +409,8 @@ class TestRGBSync:
 # Backend main.py — cover ALL uncovered wrappers/functions
 # ======================================================================
 
-import api.main as backend_main
-from api.main import CLIPS, register_clip, get_clip, color_clip, validate_path, parse_args
+import src.api.main as backend_main
+from src.api.main import CLIPS, register_clip, get_clip, color_clip, validate_path, parse_args
 
 
 @pytest.fixture(autouse=True)
@@ -428,116 +428,116 @@ class TestBackendVfx:
     """Cover all 2-line vfx wrappers that were missed."""
 
     def test_even_size(self):
-        from api.main import vfx_even_size
+        from src.api.main import vfx_even_size
         assert vfx_even_size(_cid()) in CLIPS
 
     def test_freeze(self):
-        from api.main import vfx_freeze
+        from src.api.main import vfx_freeze
         assert vfx_freeze(_cid(), t=0, freeze_duration=0.5) in CLIPS
 
     def test_loop(self):
-        from api.main import vfx_loop
+        from src.api.main import vfx_loop
         assert vfx_loop(_cid(), n=2) in CLIPS
 
     def test_lum_contrast(self):
-        from api.main import vfx_lum_contrast
+        from src.api.main import vfx_lum_contrast
         assert vfx_lum_contrast(_cid(), lum=10, contrast=5) in CLIPS
 
     def test_make_loopable(self):
-        from api.main import vfx_make_loopable
+        from src.api.main import vfx_make_loopable
         assert vfx_make_loopable(_cid(), overlap_duration=0.2) in CLIPS
 
     def test_margin(self):
-        from api.main import vfx_margin
+        from src.api.main import vfx_margin
         assert vfx_margin(_cid(), margin=5, color=[255, 0, 0]) in CLIPS
 
     def test_mask_color(self):
-        from api.main import vfx_mask_color
+        from src.api.main import vfx_mask_color
         assert vfx_mask_color(_cid(), color=[0, 0, 0]) in CLIPS
 
     def test_masks_and(self):
-        from api.main import vfx_masks_and
+        from src.api.main import vfx_masks_and
         assert vfx_masks_and(_cid(), _cid()) in CLIPS
 
     def test_masks_or(self):
-        from api.main import vfx_masks_or
+        from src.api.main import vfx_masks_or
         assert vfx_masks_or(_cid(), _cid()) in CLIPS
 
     def test_mirror_x(self):
-        from api.main import vfx_mirror_x
+        from src.api.main import vfx_mirror_x
         assert vfx_mirror_x(_cid()) in CLIPS
 
     def test_mirror_y(self):
-        from api.main import vfx_mirror_y
+        from src.api.main import vfx_mirror_y
         assert vfx_mirror_y(_cid()) in CLIPS
 
     def test_multiply_color(self):
-        from api.main import vfx_multiply_color
+        from src.api.main import vfx_multiply_color
         assert vfx_multiply_color(_cid(), factor=1.5) in CLIPS
 
     def test_multiply_speed(self):
-        from api.main import vfx_multiply_speed
+        from src.api.main import vfx_multiply_speed
         assert vfx_multiply_speed(_cid(), factor=2.0) in CLIPS
 
     def test_painting(self):
-        from api.main import vfx_painting
+        from src.api.main import vfx_painting
         assert vfx_painting(_cid()) in CLIPS
 
     def test_slide_in(self):
-        from api.main import vfx_slide_in
+        from src.api.main import vfx_slide_in
         assert vfx_slide_in(_cid(), duration=0.2, side="left") in CLIPS
 
     def test_slide_out(self):
-        from api.main import vfx_slide_out
+        from src.api.main import vfx_slide_out
         assert vfx_slide_out(_cid(), duration=0.2, side="right") in CLIPS
 
     def test_time_mirror(self):
-        from api.main import vfx_time_mirror
+        from src.api.main import vfx_time_mirror
         assert vfx_time_mirror(_cid()) in CLIPS
 
     def test_time_symmetrize(self):
-        from api.main import vfx_time_symmetrize
+        from src.api.main import vfx_time_symmetrize
         assert vfx_time_symmetrize(_cid()) in CLIPS
 
     def test_supersample(self):
-        from api.main import vfx_supersample
+        from src.api.main import vfx_supersample
         assert vfx_supersample(_cid(), d=0.5, nframes=2) in CLIPS
 
     def test_scroll(self):
-        from api.main import vfx_scroll
+        from src.api.main import vfx_scroll
         assert vfx_scroll(_cid(), w=10, h=10) in CLIPS
 
     def test_resize_both(self):
-        from api.main import vfx_resize
+        from src.api.main import vfx_resize
         assert vfx_resize(_cid(), width=10, height=10) in CLIPS
 
     # Custom effects via backend wrappers
     def test_vfx_quad_mirror(self):
-        from api.main import vfx_quad_mirror
+        from src.api.main import vfx_quad_mirror
         assert vfx_quad_mirror(_cid(), x=5, y=5) in CLIPS
 
     def test_vfx_chroma_key(self):
-        from api.main import vfx_chroma_key
+        from src.api.main import vfx_chroma_key
         assert vfx_chroma_key(_cid()) in CLIPS
 
     def test_vfx_kaleidoscope(self):
-        from api.main import vfx_kaleidoscope
+        from src.api.main import vfx_kaleidoscope
         assert vfx_kaleidoscope(_cid(), n_slices=6) in CLIPS
 
     def test_vfx_matrix(self):
-        from api.main import vfx_matrix
+        from src.api.main import vfx_matrix
         assert vfx_matrix(_cid(), speed=100, density=0.2, font_size=10) in CLIPS
 
     def test_vfx_auto_framing(self):
-        from api.main import vfx_auto_framing
+        from src.api.main import vfx_auto_framing
         assert vfx_auto_framing(_cid()) in CLIPS
 
     def test_vfx_clone_grid(self):
-        from api.main import vfx_clone_grid
+        from src.api.main import vfx_clone_grid
         assert vfx_clone_grid(_cid(), n_clones=4) in CLIPS
 
     def test_vfx_kaleidoscope_cube(self):
-        from api.main import vfx_kaleidoscope_cube
+        from src.api.main import vfx_kaleidoscope_cube
         assert vfx_kaleidoscope_cube(_cid()) in CLIPS
 
 
@@ -545,88 +545,88 @@ class TestBackendAfx:
     """Cover all audio effect wrappers."""
 
     def test_audio_delay(self):
-        from api.main import afx_audio_delay
+        from src.api.main import afx_audio_delay
         try: afx_audio_delay(_cid(), offset=0.1)
         except Exception: pass  # color clips lack audio
 
     def test_audio_fade_in(self):
-        from api.main import afx_audio_fade_in
+        from src.api.main import afx_audio_fade_in
         try: afx_audio_fade_in(_cid(), duration=0.1)
         except Exception: pass
 
     def test_audio_fade_out(self):
-        from api.main import afx_audio_fade_out
+        from src.api.main import afx_audio_fade_out
         try: afx_audio_fade_out(_cid(), duration=0.1)
         except Exception: pass
 
     def test_audio_loop(self):
-        from api.main import afx_audio_loop
+        from src.api.main import afx_audio_loop
         try: afx_audio_loop(_cid(), n_loops=2)
         except Exception: pass
 
     def test_audio_normalize(self):
-        from api.main import afx_audio_normalize
+        from src.api.main import afx_audio_normalize
         try: afx_audio_normalize(_cid())
         except Exception: pass
 
     def test_multiply_stereo_volume(self):
-        from api.main import afx_multiply_stereo_volume
+        from src.api.main import afx_multiply_stereo_volume
         try: afx_multiply_stereo_volume(_cid(), left=0.5, right=0.5)
         except Exception: pass
 
     def test_multiply_volume(self):
-        from api.main import afx_multiply_volume
+        from src.api.main import afx_multiply_volume
         try: afx_multiply_volume(_cid(), factor=0.5)
         except Exception: pass
 
 
 class TestBackendAudioComposition:
     def test_composite_audio(self):
-        from api.main import composite_audio_clips
+        from src.api.main import composite_audio_clips
         try: composite_audio_clips([_cid()])
         except Exception: pass
 
     def test_concatenate_audio(self):
-        from api.main import concatenate_audio_clips
+        from src.api.main import concatenate_audio_clips
         try: concatenate_audio_clips([_cid()])
         except Exception: pass
 
 
 class TestBackendPrompts:
     def test_demonstrate_kaleidoscope(self):
-        from api.main import demonstrate_kaleidoscope
+        from src.api.main import demonstrate_kaleidoscope
         assert "clip_1" in demonstrate_kaleidoscope("clip_1")
 
     def test_glitch_effect_preset(self):
-        from api.main import glitch_effect_preset
+        from src.api.main import glitch_effect_preset
         assert "RGB" in glitch_effect_preset("c")
 
     def test_matrix_intro_preset(self):
-        from api.main import matrix_intro_preset
+        from src.api.main import matrix_intro_preset
         assert "Matrix" in matrix_intro_preset("c")
 
     def test_auto_framing_for_tiktok(self):
-        from api.main import auto_framing_for_tiktok
+        from src.api.main import auto_framing_for_tiktok
         assert "9:16" in auto_framing_for_tiktok("c")
 
     def test_rotating_cube_transition(self):
-        from api.main import rotating_cube_transition
+        from src.api.main import rotating_cube_transition
         assert "cube" in rotating_cube_transition("c").lower()
 
     def test_demonstrate_kaleidoscope_cube(self):
-        from api.main import demonstrate_kaleidoscope_cube
+        from src.api.main import demonstrate_kaleidoscope_cube
         assert "clip_1" in demonstrate_kaleidoscope_cube("clip_1")
 
 
 class TestBackendCheckInstallation:
     def test_success(self):
-        from api.main import tools_check_installation
+        from src.api.main import tools_check_installation
         with patch("moviepy.config.check"):
             r = tools_check_installation()
             assert "check" in r.lower() or "ran" in r.lower()
 
     def test_failure(self):
-        from api.main import tools_check_installation
+        from src.api.main import tools_check_installation
         with patch("moviepy.config.check", side_effect=Exception("bad")):
             assert "failed" in tools_check_installation().lower()
 
@@ -649,13 +649,13 @@ class TestBackendParseArgs:
 class TestBackendMain:
     def test_stdio(self):
         with patch.object(backend_main, "mcp") as m, \
-             patch("api.main.parse_args", return_value=SimpleNamespace(transport="stdio", host="0.0.0.0", port=8080)):
+             patch("src.api.main.parse_args", return_value=SimpleNamespace(transport="stdio", host="0.0.0.0", port=8080)):
             backend_main.main()
             m.run.assert_called_with(transport="stdio")
 
     def test_http(self):
         with patch.object(backend_main, "mcp") as m, \
-             patch("api.main.parse_args", return_value=SimpleNamespace(transport="http", host="0.0.0.0", port=8080)):
+             patch("src.api.main.parse_args", return_value=SimpleNamespace(transport="http", host="0.0.0.0", port=8080)):
             backend_main.main()
             m.run.assert_called_with(transport="http", host="0.0.0.0", port=8080)
 
@@ -665,13 +665,13 @@ class TestBackendMain:
             nonlocal n; n += 1
             if n == 1: raise Exception("fail")
         with patch.object(backend_main, "mcp") as m, \
-             patch("api.main.parse_args", return_value=SimpleNamespace(transport="http", host="0.0.0.0", port=8080)):
+             patch("src.api.main.parse_args", return_value=SimpleNamespace(transport="http", host="0.0.0.0", port=8080)):
             m.run = mock_run
             backend_main.main()
 
     def test_sse(self):
         with patch.object(backend_main, "mcp") as m, \
-             patch("api.main.parse_args", return_value=SimpleNamespace(transport="sse", host="0.0.0.0", port=8080)):
+             patch("src.api.main.parse_args", return_value=SimpleNamespace(transport="sse", host="0.0.0.0", port=8080)):
             backend_main.main()
             m.run.assert_called_with(transport="sse", host="0.0.0.0", port=8080)
 
@@ -689,7 +689,7 @@ class TestBackendValidatePath:
 
 class TestBackendImageClipDurationError:
     def test_negative_duration(self):
-        from api.main import image_clip
+        from src.api.main import image_clip
         from PIL import Image
         img = Image.fromarray(np.zeros((10, 10, 3), dtype=np.uint8))
         img.save("/tmp/_test_cov.png")
@@ -702,7 +702,7 @@ class TestBackendImageClipDurationError:
 
 class TestBackendColorClipValidation:
     def test_bad_size(self):
-        from api.main import color_clip as cc
+        from src.api.main import color_clip as cc
         with pytest.raises(ValueError):
             cc([0, 10], [0, 0, 0])
         with pytest.raises(ValueError):

@@ -13,7 +13,7 @@ import numexpr
 try:
     from custom_fx import *
 except ModuleNotFoundError:
-    from api.custom_fx import *
+    from src.api.custom_fx import *
 import argparse
 import sys
 

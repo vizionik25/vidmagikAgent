@@ -50,7 +50,7 @@ class MCPVideoClient:
     def __init__(self):
         self._transport = StdioTransport(
             command="uv",
-            args=["run", "api/main.py", "--transport", "stdio"],
+            args=["run", "src/api/main.py", "--transport", "stdio"],
             cwd=str(VIDMAGIK_DIR),
         )
         self._client = Client(self._transport)

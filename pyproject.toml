@@ -1,7 +1,19 @@
 [project]
-name = "vidmagik-mcp"
+name = "vidmagik-agent"
 version = "0.1.0"
+description = "AI-powered video editing agent that creates short-form content from any video"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.13"
+keywords = ["video", "editing", "ai", "mcp", "moviepy", "shorts", "tiktok"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+]
 dependencies = [
     "fastmcp>=3.0.0",
     "litellm>=1.40.0",
@@ -9,9 +21,18 @@ dependencies = [
     "nicegui>=2.0.0",
     "numexpr>=2.14.1",
     "opencv-contrib-python-headless>=4.13.0.92",
-    "pytest>=9.0.2",
     "yt-dlp>=2024.0.0",
 ]
+
+[project.scripts]
+vidmagik = "src.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -19,6 +40,7 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
 ]
