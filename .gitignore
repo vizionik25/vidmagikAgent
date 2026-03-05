@@ -37,3 +37,7 @@ decode_b64.py
 
 # Environment variables
 .env
+
+# build
+dist/
+build/

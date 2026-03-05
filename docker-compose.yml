@@ -10,11 +10,14 @@ services:
   shorts-creator:
     build:
       context: .
-      dockerfile: app/Dockerfile
+      dockerfile: src/app/Dockerfile
     ports:
       - "3000:3000"
     volumes:
       - ./media:/app/media
+    depends_on:
+      - vidmagik-mcp
     environment:
       - PYTHONUNBUFFERED=1
       - NICEGUI_HOST=0.0.0.0
+      - MCP_SERVER_URL=http://vidmagik-mcp:8080/mcp

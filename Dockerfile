@@ -29,7 +29,7 @@ WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies
 # Using uv sync to ensure we have the exact environment from uv.lock
@@ -40,4 +40,4 @@ COPY . .
 
 # Run the server
 # We use uv run to execute in the synced virtual environment
-CMD ["uv", "run", "api/main.py"]
+CMD ["uv", "run", "src/api/main.py"]

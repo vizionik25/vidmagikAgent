@@ -14,15 +14,15 @@ WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
 
 # Copy root project files (deps are in root pyproject.toml)
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies
 RUN uv sync --frozen --no-cache
 
-# Copy the full project (api/main.py for MCP server + app/ for frontend)
+# Copy the full project (src/api/main.py for MCP server + src/app/ for frontend)
 COPY . .
 
 EXPOSE 3000
 
 # Run the frontend — NiceGUI binds to 0.0.0.0:3000
-CMD ["uv", "run", "app/main.py"]
+CMD ["uv", "run", "src/app/main.py"]

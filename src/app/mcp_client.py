@@ -13,9 +13,9 @@ from typing import AsyncIterator
 
 import litellm
 from fastmcp import Client
-from fastmcp.client.transports import StdioTransport
+from fastmcp.client.transports import StdioTransport, StreamableHttpTransport
 
-VIDMAGIK_DIR = Path(__file__).parent.parent
+VIDMAGIK_DIR = Path(__file__).parent.parent.parent
 MEDIA_DIR = VIDMAGIK_DIR / "media"
 
 SYSTEM_PROMPT = """\
@@ -45,14 +45,20 @@ Important rules:
 
 
 class MCPVideoClient:
-    """Manages the vidmagik-mcp subprocess and the LLM agentic loop."""
+    """Manages the vidmagik-mcp connection and the LLM agentic loop."""
 
     def __init__(self):
-        self._transport = StdioTransport(
-            command="uv",
-            args=["run", "src/api/main.py", "--transport", "stdio"],
-            cwd=str(VIDMAGIK_DIR),
-        )
+        # When MCP_SERVER_URL is set (e.g. in Docker Compose), connect over HTTP.
+        # Otherwise fall back to spawning the server as a local subprocess.
+        mcp_url = os.environ.get("MCP_SERVER_URL")
+        if mcp_url:
+            self._transport = StreamableHttpTransport(mcp_url)
+        else:
+            self._transport = StdioTransport(
+                command="uv",
+                args=["run", "src/api/main.py", "--transport", "stdio"],
+                cwd=str(VIDMAGIK_DIR),
+            )
         self._client = Client(self._transport)
         self._connected = False
         self._openai_tools: list[dict] = []
@@ -155,11 +161,18 @@ class MCPVideoClient:
             },
         ]
 
+        # Auto-prefix model for LiteLLM when using a custom API base
+        # Users enter the model name as their server expects (e.g. "ibm/granite-4-h-tiny")
+        # but LiteLLM needs "openai/" prefix to know which API protocol to use
+        _model = model
+        if api_base and not model.startswith(("openai/", "anthropic/", "ollama/", "huggingface/")):
+            _model = f"openai/{model}"
+
         # Loop until the LLM returns a final text response (no more tool calls)
         for _iteration in range(50):  # safety cap
             try:
                 response = await litellm.acompletion(
-                    model=model,
+                    model=_model,
                     messages=messages,
                     tools=self._openai_tools if self._openai_tools else None,
                     tool_choice="auto",
