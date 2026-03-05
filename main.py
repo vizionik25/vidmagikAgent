@@ -1,5 +1,3 @@
-"""Entry point — launches the AI Shorts Creator web app."""
-
 import subprocess
 import sys
 
