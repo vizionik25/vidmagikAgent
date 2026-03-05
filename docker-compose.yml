@@ -1,0 +1,20 @@
+services:
+  vidmagik-mcp:
+    build: .
+    stdin_open: true
+    volumes:
+      - ./media:/app/media
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  shorts-creator:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./media:/app/media
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NICEGUI_HOST=0.0.0.0
