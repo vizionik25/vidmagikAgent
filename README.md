@@ -4,7 +4,7 @@
     <strong>An AI-powered video editing agent that automatically creates short-form content from any video.</strong>
   </p>
   <p align="center">
-    Paste a URL → AI downloads, analyzes, edits, and exports vertical shorts for TikTok, YouTube Shorts & Instagram Reels.
+    Paste a URL → AI downloads, analyzes, detects highlights, edits, and exports vertical shorts for TikTok, YouTube Shorts & Instagram Reels.
   </p>
   <p align="center">
     <a href="#-quick-start">Quick Start</a> •
@@ -27,18 +27,20 @@ The project consists of three major components:
 
 | Component | What It Does |
 |---|---|
-| **AI Shorts Creator** (`app/`) | A NiceGUI web application — the main user-facing product. Paste a video URL, give optional creative instructions, and the AI agent handles everything: downloading, scene analysis, intelligent clip selection, vertical reframing, effects, and export. |
-| **vidmagik-mcp Backend** (`api/main.py`) | An MCP (Model Context Protocol) server exposing **60+ video/audio editing tools** built on MoviePy. This is the "hands" the AI agent uses to actually edit video. |
-| **Custom Effects Library** (`api/custom_fx/`) | 9 production-ready visual effects — Matrix rain, kaleidoscope, chroma key, face-tracking auto-framing, 3D rotating cube, and more — that go beyond MoviePy's built-in effects. |
+| **AI Shorts Creator** (`src/app/`) | A NiceGUI web application — the main user-facing product. Paste a video URL, give optional creative instructions, and the AI agent handles everything: downloading, highlight detection, scene analysis, intelligent clip selection, vertical reframing, effects, and export. |
+| **vidmagik-mcp Backend** (`src/api/main.py`) | An MCP (Model Context Protocol) server exposing **60+ video/audio editing tools** built on MoviePy. This is the "hands" the AI agent uses to actually edit video. Supports **stdio**, **SSE**, and **StreamableHTTP** transports. |
+| **Custom Effects Library** (`src/api/custom_fx/`) | 9 production-ready visual effects — Matrix rain, kaleidoscope, chroma key, face-tracking auto-framing, 3D rotating cube, and more — plus an optical-flow **highlight detection** module that goes beyond MoviePy's built-in effects. |
 
 ### Key Capabilities
 
 - 🤖 **Fully Autonomous** — The AI agent makes all creative decisions: which moments to pick, how to crop, what effects to apply, when to cut.
 - 🌐 **Any Video Source** — Downloads from YouTube, TikTok, Instagram, Twitter, and [1000+ sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) via yt-dlp.
 - 📱 **Vertical-First** — Auto-framing with face detection (Haar Cascades) converts 16:9 → 9:16 while keeping subjects centered.
-- 🔧 **Any LLM** — Works with OpenAI, Anthropic, local models (LM Studio, Ollama), or any OpenAI-compatible API via LiteLLM.
-- 🎨 **60+ Editing Tools** — Full MoviePy API + 9 custom effects, all exposed as MCP tools the agent can call.
+- 🔍 **Optical-Flow Highlight Detection** — Automatically finds high-motion/action moments using dense optical flow (Farneback algorithm) for intelligent clip selection.
+- 🔧 **Any LLM** — Works with LM Studio, Gemini, OpenAI, Anthropic, Ollama, or any OpenAI-compatible API via LiteLLM. Auto-detects provider from environment variables.
+- 🎨 **60+ Editing Tools** — Full MoviePy API + 9 custom effects + highlight detection, all exposed as MCP tools the agent can call.
 - 📡 **Real-Time Streaming UI** — Watch the agent think, call tools, and produce results in a live chat-style activity log.
+- 🔌 **Flexible Transport** — MCP server supports stdio (local subprocess), SSE, and StreamableHTTP for scalable remote deployments.
 - 🐳 **Docker Ready** — Multi-service `docker-compose.yml` for one-command deployment.
 
 ---
@@ -58,27 +60,43 @@ The project consists of three major components:
 
 ```bash
 # Clone the repo
-git clone https://github.com/vizionik25/vidmagik-mcp.git
-cd vidmagik-mcp
+git clone https://github.com/vizionik25/vidmagikAgent.git
+cd vidmagikAgent
 
 # Install all dependencies
 uv sync
 
 # Launch the AI Shorts Creator web app
-uv run app/main.py
+uv run src/app/main.py
 # → Opens at http://127.0.0.1:3000
 ```
 
+### Environment Variables (`.env`)
+
+Copy `.env.example` to `.env` and configure your LLM provider. Docker Compose reads this automatically.
+
+```bash
+cp .env.example .env
+```
+
+The system auto-detects your LLM provider from environment variables:
+
+| Variable | Example | Notes |
+|---|---|---|
+| `LM_STUDIO_API_BASE` | `http://localhost:1234/v1` | LM Studio local LLM (preferred) |
+| `LLM_MODEL` | `ibm/granite-4-h-tiny` | Model name (auto-prefixed for LM Studio) |
+| `GEMINI_API_KEY` | `your-gemini-key` | Auto-selects `gemini/gemini-2.0-flash` |
+| `OPENAI_API_KEY` | `sk-...` | Auto-selects `gpt-4o` |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | Auto-selects `anthropic/claude-sonnet-4-20250514` |
+
 ### Using the Web App
 
-1. **Configure your LLM** — Set the API base URL, API key, and model name in the "LLM Settings" panel.
-   - For **LM Studio**: `http://localhost:1234/v1` / `lm-studio` / `local-model`
-   - For **OpenAI**: `https://api.openai.com/v1` / `sk-...` / `gpt-4o`
-   - For **Ollama**: `http://localhost:11434/v1` / `ollama` / `llama3`
-2. **Paste a video URL** — YouTube, TikTok, Instagram, or any supported site.
-3. **Add instructions** (optional) — e.g., *"Focus on the funniest moments, make 3 shorts"*.
-4. **Click "Create Shorts"** — The agent downloads the video, analyzes scenes, picks the best clips, reframes for vertical, applies effects, and exports.
-5. **Download your shorts** — Exported files appear in the "Exported Shorts" panel with one-click download buttons.
+1. **Paste a video URL** — YouTube, TikTok, Instagram, or any supported site.
+2. **Add instructions** (optional) — e.g., *"Focus on the funniest moments, make 3 shorts"*.
+3. **Click "Create Shorts"** — The agent downloads the video, detects highlights via optical flow, picks the best clips, reframes for vertical, applies effects, and exports.
+4. **Download your shorts** — Exported files appear in the "Exported Shorts" panel with one-click download buttons.
+
+> **Note**: LLM settings can be configured via environment variables (recommended) or overridden in the UI's "LLM Settings" panel. Environment auto-detection means zero config for most setups.
 
 ---
 
@@ -89,7 +107,7 @@ sequenceDiagram
     participant User
     participant WebUI as AI Shorts Creator<br/>(NiceGUI)
     participant YTD as yt-dlp
-    participant LLM as LLM Provider<br/>(OpenAI / Local)
+    participant LLM as LLM Provider<br/>(LM Studio / Cloud)
     participant MCP as vidmagik-mcp<br/>Backend
 
     User->>WebUI: Paste URL + optional instructions
@@ -109,17 +127,18 @@ sequenceDiagram
 
 ### The Agentic Loop
 
-The heart of the project is the **agentic loop** in `app/mcp_client.py`. Here's what happens when you click "Create Shorts":
+The heart of the project is the **agentic loop** in `src/app/mcp_client.py`. Here's what happens when you click "Create Shorts":
 
 1. **Download** — `yt-dlp` downloads the video to the `media/` directory.
 2. **System Prompt** — The app sends a system prompt to the configured LLM, instructing it to act as an expert video editor.
 3. **Tool Calling Loop** — The LLM decides what to do and calls MCP tools:
    - `video_file_clip` → Load the downloaded video
-   - `tools_detect_scenes` → Analyze scene boundaries
-   - `subclip` → Extract the best 15-60 second segments
+   - `tools_detect_highlights` → **Optical-flow analysis** to find high-motion moments
+   - `subclip` → Extract the best 5–15 second segments around each highlight
    - `vfx_auto_framing` → Crop to 9:16 vertical with face tracking
+   - `concatenate_video_clips` → Combine all clips into one highlight reel
    - `vfx_fade_in` / `vfx_fade_out` → Smooth transitions
-   - `write_videofile` → Export to `media/short_1.mp4`, `short_2.mp4`, etc.
+   - `write_videofile` → Export to `media/short.mp4`
 4. **Summary** — The LLM explains its creative choices (why it picked those moments, what effects it applied).
 5. **UI Updates** — Every tool call and result streams to the Agent Activity log in real time.
 
@@ -127,39 +146,46 @@ The heart of the project is the **agentic loop** in `app/mcp_client.py`. Here's 
 
 ```
 vidmagikAgent/
-├── app/                         # 🖥  FRONTEND — AI Shorts Creator
-│   ├── main.py                  #    NiceGUI web UI (dark mode, real-time log)
-│   ├── mcp_client.py            #    MCP client + LLM agentic loop (LiteLLM)
-│   └── Dockerfile               #    Frontend Docker image
+├── src/                             # 📦  SOURCE PACKAGE
+│   ├── __init__.py                  #    Package marker
+│   ├── main.py                      #    CLI entry point (launches web app)
+│   ├── inspect_moviepy.py           #    MoviePy installation checker
+│   │
+│   ├── api/                         # ⚙️  BACKEND
+│   │   ├── __init__.py              #    Package init
+│   │   ├── main.py                  #    vidmagik-mcp server (60+ MCP tools, prompts, upload route)
+│   │   └── custom_fx/               #  🎨  EFFECTS LIBRARY
+│   │       ├── __init__.py           #    Re-exports all effects + highlight detection
+│   │       ├── auto_framing.py       #    Face-tracking vertical crop
+│   │       ├── chroma_key.py         #    Green screen removal
+│   │       ├── clone_grid.py         #    Grid of video clones
+│   │       ├── highlight_detect.py   #    Optical-flow highlight detection
+│   │       ├── kaleidoscope.py       #    Radial symmetry
+│   │       ├── kaleidoscope_cube.py  #    Kaleidoscope + rotating cube combo
+│   │       ├── matrix.py             #    "Matrix" digital rain overlay
+│   │       ├── quad_mirror.py        #    Four-quadrant mirror
+│   │       ├── rgb_sync.py           #    RGB channel split / glitch
+│   │       └── rotating_cube.py      #    3D rotating cube with video mapping
+│   │
+│   └── app/                         # 🖥  FRONTEND — AI Shorts Creator
+│       ├── __init__.py              #    Package init
+│       ├── main.py                  #    NiceGUI web UI (dark mode, real-time log)
+│       ├── mcp_client.py            #    MCP client + LLM agentic loop (LiteLLM)
+│       └── Dockerfile               #    Frontend Docker image
 │
-├── api/                         # ⚙️  BACKEND
-│   ├── __init__.py              #    Package init
-│   ├── main.py                  #    vidmagik-mcp server (60+ MCP tools, prompts, upload route)
-│   └── custom_fx/               #  🎨  EFFECTS LIBRARY
-│       ├── __init__.py           #    Re-exports all 9 custom effects
-│       ├── auto_framing.py       #    Face-tracking vertical crop
-│       ├── chroma_key.py         #    Green screen removal
-│       ├── clone_grid.py         #    Grid of video clones
-│       ├── kaleidoscope.py       #    Radial symmetry
-│       ├── kaleidoscope_cube.py  #    Kaleidoscope + rotating cube combo
-│       ├── matrix.py             #    "Matrix" digital rain overlay
-│       ├── quad_mirror.py        #    Four-quadrant mirror
-│       ├── rgb_sync.py           #    RGB channel split / glitch
-│       └── rotating_cube.py      #    3D rotating cube with video mapping
+├── tests/                           # 🧪  TEST SUITE
+│   ├── test_e2e.py                  #    Backend end-to-end tests
+│   ├── test_nicegui_integration.py  #    NiceGUI integration tests
+│   └── frontend_e2e_test.py         #    Frontend end-to-end tests
 │
-├── tests/                       # 🧪  TEST SUITE
-│   ├── test_e2e.py              #    Backend end-to-end tests
-│   ├── test_nicegui_integration.py  # NiceGUI integration tests
-│   └── frontend_e2e_test.py     #    Frontend end-to-end tests
-│
-├── media/                       # 📁  Working directory (gitignored)
-├── Dockerfile                   # 🐳  Backend Docker image
-├── docker-compose.yml           # 🐳  Multi-service orchestration
-├── pyproject.toml               # 📦  Dependencies & config
-├── uv.lock                      # 🔒  Locked dependency versions
-├── CUSTOM_FX.md                 # 📖  Custom effects documentation
-├── LICENSE                      # ⚖️  MIT License
-└── inspect_moviepy.py           # 🔍  MoviePy installation checker
+├── media/                           # 📁  Working directory (gitignored)
+├── Dockerfile                       # 🐳  Backend Docker image
+├── docker-compose.yml               # 🐳  Multi-service orchestration
+├── pyproject.toml                   # 📦  Dependencies, packaging & CLI config
+├── uv.lock                          # 🔒  Locked dependency versions
+├── .env.example                     # 🔑  Environment variable template
+├── CUSTOM_FX.md                     # 📖  Custom effects documentation
+└── LICENSE                          # ⚖️  MIT License
 ```
 
 ---
@@ -168,16 +194,16 @@ vidmagikAgent/
 
 ### UI Sections
 
-The AI Shorts Creator (`app/main.py`) is a dark-themed NiceGUI single-page application with four main sections:
+The AI Shorts Creator (`src/app/main.py`) is a dark-themed NiceGUI single-page application with four main sections:
 
 #### 1. LLM Settings (Collapsible)
-Configure the LLM backend on the fly — no restart needed:
+Configure the LLM backend. Can be preset via environment variables or adjusted in the UI:
 
-| Field | Default | Notes |
+| Field | Env Var | Notes |
 |---|---|---|
-| API Base URL | `http://localhost:1234/v1` | Any OpenAI-compatible endpoint |
-| API Key | `lm-studio` | `sk-...` for OpenAI, `ollama` for Ollama, etc. |
-| Model | `local-model` | `gpt-4o`, `claude-3-opus`, `llama3`, etc. |
+| API Base URL | `LM_STUDIO_API_BASE` | Any OpenAI-compatible endpoint |
+| API Key | `LM_STUDIO_API_KEY` | Auto-detected from provider env vars |
+| Model | `LLM_MODEL` | `ibm/granite-4-h-tiny`, `gpt-4o`, `gemini-2.0-flash`, etc. |
 
 #### 2. Video Source
 - **Video URL** — Paste any URL supported by yt-dlp.
@@ -195,31 +221,32 @@ A scrolling, chat-style log that streams the agent's work in real time:
 #### 4. Exported Shorts
 Download cards for each exported video file, with movie icon and one-click download buttons.
 
-### MCP Client (`app/mcp_client.py`)
+### MCP Client (`src/app/mcp_client.py`)
 
 The `MCPVideoClient` class handles the full lifecycle:
 
-- **Connection** — Spawns the vidmagik-mcp backend as a subprocess over stdio transport.
+- **Connection** — Connects to the vidmagik-mcp backend via **StreamableHTTP** (when `MCP_SERVER_URL` is set, e.g. in Docker) or spawns it as a local **subprocess** over stdio transport.
 - **Schema Discovery** — Fetches all MCP tool schemas and converts them to OpenAI function-calling format.
 - **Video Download** — Uses `yt-dlp` to download videos with best quality MP4 format.
 - **Agentic Loop** — Iterates up to 50 rounds of LLM → tool call → result → LLM, yielding typed events for the UI to render.
 - **LiteLLM Integration** — Translates MCP tool schemas to OpenAI format so any OpenAI-compatible model can drive the agent.
+- **Auto-Config** — Resolves LLM provider automatically from environment variables (LM Studio → Gemini → OpenAI → Anthropic).
 
 ---
 
 ## ⚙️ MCP Backend
 
-The backend (`api/main.py`) is a [FastMCP](https://github.com/jlowin/fastmcp) server that wraps the entire MoviePy video editing library as MCP tools. It can run in three transport modes:
+The backend (`src/api/main.py`) is a [FastMCP](https://github.com/jlowin/fastmcp) server that wraps the entire MoviePy video editing library as MCP tools. It can run in three transport modes:
 
 ```bash
-# HTTP (default) — for standalone use or HTTP MCP clients
-uv run api/main.py --transport http --host 0.0.0.0 --port 8080
+# HTTP (default) — for standalone use or StreamableHTTP MCP clients
+uv run src/api/main.py --transport http --host 0.0.0.0 --port 8080
 
 # SSE — for Server-Sent Events MCP clients
-uv run api/main.py --transport sse
+uv run src/api/main.py --transport sse
 
-# stdio — for subprocess-based MCP clients (used by the AI Shorts Creator)
-uv run api/main.py --transport stdio
+# stdio — for subprocess-based MCP clients (used by the AI Shorts Creator locally)
+uv run src/api/main.py --transport stdio
 ```
 
 ### Clip Management System
@@ -364,11 +391,12 @@ write_videofile("e5f6-...", "output.mp4") → "Successfully wrote video to outpu
 </details>
 
 <details>
-<summary><strong>Analysis & Utility</strong> (7 tools)</summary>
+<summary><strong>Analysis & Utility</strong> (8 tools)</summary>
 
 | Tool | Description |
 |---|---|
 | `tools_detect_scenes(clip_id, luminosity_threshold)` | Detect scene boundaries |
+| `tools_detect_highlights(clip_id, threshold)` | **Optical-flow highlight detection** — finds high-motion moments |
 | `tools_find_video_period(clip_id, start_time)` | Find video repeating period |
 | `tools_find_audio_period(clip_id)` | Find audio repeating period |
 | `tools_drawing_color_gradient(size, p1, p2, col1, col2, shape, offset)` | Generate gradient image |
@@ -405,7 +433,7 @@ curl -X POST http://localhost:8080/upload -F "file=@/path/to/video.mp4"
 
 ## 🎨 Custom Effects
 
-All 9 custom effects are in `api/custom_fx/` and follow the MoviePy `Effect` protocol. Full parameter documentation is in [CUSTOM_FX.md](CUSTOM_FX.md).
+All 9 custom effects are in `src/api/custom_fx/` and follow the MoviePy `Effect` protocol. The module also includes a standalone **highlight detection** function. Full parameter documentation is in [CUSTOM_FX.md](CUSTOM_FX.md).
 
 | Effect | File | What It Does |
 |---|---|---|
@@ -418,6 +446,7 @@ All 9 custom effects are in `api/custom_fx/` and follow the MoviePy `Effect` pro
 | **Quad Mirror** | `quad_mirror.py` | Four-quadrant symmetry around a configurable center point. |
 | **Rotating Cube** | `rotating_cube.py` | 3D cube with video on all faces. Multi-axis rotation, optional quad-mirroring, circular motion paths. |
 | **KaleidoscopeCube** | `kaleidoscope_cube.py` | Compound effect: Kaleidoscope → Rotating Cube with independent config for each stage. |
+| **Highlight Detection** | `highlight_detect.py` | Optical-flow (Farneback) analysis on keyframes to detect high-motion moments. Returns timestamped highlights with intensity scores. |
 
 ---
 
@@ -429,7 +458,7 @@ All 9 custom effects are in `api/custom_fx/` and follow the MoviePy `Effect` pro
 # Build and start everything
 docker compose up --build
 
-# Just the web app (includes MCP backend as subprocess)
+# Just the web app (connects to MCP backend via StreamableHTTP)
 docker compose up shorts-creator
 
 # Just the MCP backend standalone
@@ -440,8 +469,10 @@ docker compose up vidmagik-mcp
 
 | Service | Description | Port | Dockerfile |
 |---|---|---|---|
-| `shorts-creator` | AI Shorts Creator web app | `3000` | `app/Dockerfile` |
-| `vidmagik-mcp` | MCP server (stdio mode) | — | `Dockerfile` |
+| `shorts-creator` | AI Shorts Creator web app | `3000` | `src/app/Dockerfile` |
+| `vidmagik-mcp` | MCP server (HTTP mode) | `8080` | `Dockerfile` |
+
+In Docker Compose, the frontend connects to the backend over **StreamableHTTP** via the `MCP_SERVER_URL` environment variable (set to `http://vidmagik-mcp:8080/mcp`). When running locally without Docker, the frontend spawns the backend as a local subprocess over stdio.
 
 ### Docker Details
 
@@ -449,11 +480,12 @@ docker compose up vidmagik-mcp
 - Base: `python:3.12-slim`
 - System deps: `ffmpeg`, `imagemagick`, `libsm6`, `libxext6`, `libgl1`
 - Auto-patches ImageMagick policy for TextClip support
-- Package manager: `uv` (install + sync from lockfile)
+- Package manager: `uv` (install + sync from lockfile, pinned to Python 3.13)
 
-**Frontend image** (`app/Dockerfile`):
+**Frontend image** (`src/app/Dockerfile`):
 - Base: `python:3.12-slim`
 - System deps: `ffmpeg`
+- Pinned to Python 3.13
 - Exposes port `3000`
 
 **Shared volume**: `./media:/app/media` — both services share video files.
@@ -464,8 +496,12 @@ docker compose up vidmagik-mcp
 |---|---|---|
 | `PYTHONUNBUFFERED` | `1` | Disable output buffering |
 | `NICEGUI_HOST` | `127.0.0.1` | NiceGUI bind address (`0.0.0.0` in Docker) |
-| `HOST` | `0.0.0.0` | MCP server bind address |
-| `PORT` | `8080` | MCP server port |
+| `MCP_SERVER_URL` | — | StreamableHTTP URL for remote MCP server (Docker only) |
+| `LM_STUDIO_API_BASE` | — | LM Studio API endpoint |
+| `LLM_MODEL` | — | Model name (auto-prefixed for LM Studio) |
+| `GEMINI_API_KEY` | — | Gemini API key (auto-selects model) |
+| `OPENAI_API_KEY` | — | OpenAI API key (auto-selects model) |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key (auto-selects model) |
 
 ---
 
@@ -486,7 +522,7 @@ docker compose up vidmagik-mcp
 uv run pytest
 
 # With coverage
-uv run pytest --cov=. --cov-report=term-missing
+uv run pytest --cov=src --cov-report=term-missing
 
 # Specific module
 uv run pytest tests/test_e2e.py -v
@@ -508,9 +544,9 @@ asyncio_mode = "auto"
 |---|---|
 | [FastMCP](https://github.com/jlowin/fastmcp) ≥ 3.0.0 | MCP server framework |
 | [MoviePy](https://zulko.github.io/moviepy/) ≥ 2.2.1 | Video editing engine |
-| [LiteLLM](https://github.com/BerriAI/litellm) ≥ 1.40.0 | Universal LLM API client (OpenAI, Anthropic, local, etc.) |
+| [LiteLLM](https://github.com/BerriAI/litellm) ≥ 1.40.0 | Universal LLM API client (LM Studio, Gemini, OpenAI, Anthropic, local, etc.) |
 | [NiceGUI](https://nicegui.io/) ≥ 2.0.0 | Web UI framework for the Shorts Creator |
-| [OpenCV](https://opencv.org/) (headless) ≥ 4.13.0 | Computer vision — face detection for auto-framing |
+| [OpenCV](https://opencv.org/) (headless) ≥ 4.13.0 | Computer vision — face detection for auto-framing, optical flow for highlight detection |
 | [NumExpr](https://github.com/pydata/numexpr) ≥ 2.14.1 | Safe math expression evaluation (HeadBlur effect) |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) ≥ 2024.0.0 | Video downloading from 1000+ sites |
 
@@ -534,7 +570,7 @@ asyncio_mode = "auto"
 
 ### Adding a New Custom Effect
 
-1. Create `api/custom_fx/my_effect.py`:
+1. Create `src/api/custom_fx/my_effect.py`:
 
 ```python
 from moviepy import Effect
@@ -554,13 +590,13 @@ class MyEffect(Effect):
         return clip.transform(filter)
 ```
 
-2. Export from `api/custom_fx/__init__.py`:
+2. Export from `src/api/custom_fx/__init__.py`:
 
 ```python
 from .my_effect import MyEffect
 ```
 
-3. Add MCP tool in `api/main.py`:
+3. Add MCP tool in `src/api/main.py`:
 
 ```python
 @mcp.tool
@@ -573,7 +609,7 @@ def vfx_my_effect(clip_id: str, intensity: float = 1.0) -> str:
 ### Server CLI Reference
 
 ```
-usage: api/main.py [-h] [--transport {stdio,sse,http}] [--host HOST] [--port PORT]
+usage: src/api/main.py [-h] [--transport {stdio,sse,http}] [--host HOST] [--port PORT]
 
 vidMagik MCP Server
 

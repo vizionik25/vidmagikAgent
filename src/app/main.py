@@ -15,9 +15,9 @@ from mcp_client import MCPVideoClient, MEDIA_DIR
 mcp = MCPVideoClient()
 
 settings: dict = {
-    "api_base": "http://localhost:1234/v1",
-    "api_key": "lm-studio",
-    "model": "local-model",
+    "api_base": os.environ.get("LM_STUDIO_API_BASE", ""),
+    "api_key": os.environ.get("LM_STUDIO_API_KEY", ""),
+    "model": os.environ.get("LLM_MODEL", ""),
 }
 
 
@@ -258,10 +258,13 @@ async def index():
                                 "text-xs text-gray-500"
                             )
 
-                # Scroll log to bottom
-                await ui.run_javascript(
-                    "document.querySelector('.max-h-\\\\[500px\\\\]')?.scrollTo(0, 999999)"
-                )
+                # Scroll log to bottom (non-critical, ignore if client disconnected)
+                try:
+                    await ui.run_javascript(
+                        "document.querySelector('.max-h-\\\\[500px\\\\]')?.scrollTo(0, 999999)"
+                    )
+                except (TimeoutError, RuntimeError):
+                    pass
 
             # Scan media dir for any generated shorts
             _scan_for_shorts(download_container, download_card)

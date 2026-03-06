@@ -21,3 +21,11 @@ services:
       - PYTHONUNBUFFERED=1
       - NICEGUI_HOST=0.0.0.0
       - MCP_SERVER_URL=http://vidmagik-mcp:8080/mcp
+      # LM Studio (local LLM) – set LM_STUDIO_API_BASE to your server
+      - LM_STUDIO_API_BASE=${LM_STUDIO_API_BASE:-}
+      - LM_STUDIO_API_KEY=${LM_STUDIO_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      # Cloud providers (auto-detected from API key)
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}

@@ -10,10 +10,7 @@ import shutil
 import uuid
 import numpy as np
 import numexpr
-try:
-    from custom_fx import *
-except ModuleNotFoundError:
-    from src.api.custom_fx import *
+from custom_fx import *
 import argparse
 import sys
 
@@ -729,6 +726,19 @@ def tools_detect_scenes(clip_id: str, luminosity_threshold: int = 10) -> list:
     clip = get_clip(clip_id)
     cuts, luminosities = detect_scenes(clip, luminosity_threshold=luminosity_threshold)
     return [[float(start), float(end)] for start, end in cuts]
+
+@mcp.tool
+def tools_detect_highlights(clip_id: str, threshold: float = 2.0) -> list:
+    """Detect high-motion highlights in a clip using optical flow analysis.
+
+    Returns a list of dicts with 'timestamp' (seconds) and 'intensity' (motion magnitude).
+    Use higher threshold for fewer, more intense highlights. Lower threshold = more sensitive.
+    """
+    from custom_fx import detect_highlights as _detect_highlights
+    clip = get_clip(clip_id)
+    if not hasattr(clip, 'filename'):
+        raise ValueError("Clip must be a VideoFileClip with a filename for highlight detection.")
+    return _detect_highlights(clip.filename, threshold=threshold)
 
 @mcp.tool
 def tools_find_video_period(clip_id: str, start_time: float = 0.0) -> float:

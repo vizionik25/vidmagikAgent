@@ -15,33 +15,90 @@ import litellm
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport, StreamableHttpTransport
 
+# Suppress litellm's noisy internal logs (set to True when debugging LLM issues)
+litellm.suppress_debug_info = True
+
 VIDMAGIK_DIR = Path(__file__).parent.parent.parent
 MEDIA_DIR = VIDMAGIK_DIR / "media"
 
 SYSTEM_PROMPT = """\
 You are an expert AI video editor. The user will give you a video URL that has
-already been downloaded to a local file. Your job is to create compelling
-short-form video clips (for TikTok, YouTube Shorts, Instagram Reels) from the
-source video.
+already been downloaded to a local file. Your job is to create a compelling
+short-form highlight reel (for TikTok, YouTube Shorts, Instagram Reels) from
+the source video.
 
 Workflow:
 1. Load the video with `video_file_clip`.
-2. Run `tools_detect_scenes` to find scene boundaries.
-3. Analyse the scene list and pick the 1-3 most promising segments for shorts
-   (aim for 15-60 seconds each).
-4. For each chosen segment:
-   a. Extract it with `subclip`.
+2. Run `tools_detect_highlights` to find high-motion/action moments via optical flow.
+   This returns a list of `{timestamp, intensity}` dicts.
+3. **Pick the 3-5 most intense highlights.** For each one, create a subclip
+   centred on that timestamp that is 5-15 seconds long.
+   For example, if a highlight is at timestamp 45.2s, subclip from 40.0 to 50.0.
+4. For each chosen segment (MAX 5):
+   a. Extract it with `subclip` using start/end times that surround the highlight.
    b. Apply `vfx_auto_framing` with target_aspect_ratio=0.5625 for 9:16 vertical.
-   c. Add tasteful effects (fade_in, fade_out, etc.) as you see fit.
-   d. Export with `write_videofile` to `media/short_<N>.mp4`.
-5. When finished, summarise what you created and why you chose those moments.
+   c. Optionally add effects (fade_in, fade_out, etc.) as you see fit.
+5. **Concatenate all the clips** into one video using `concatenate_video_clips`
+   with the list of clip IDs from step 4.
+6. Export the single concatenated clip with `write_videofile` to `media/short.mp4`.
+7. Summarise what you created and why you chose those moments.
 
-Important rules:
+CRITICAL RULES:
+- Select at MOST 5 segments, each 5-15 seconds long.
+- ALWAYS concatenate your clips into ONE final video before exporting.
+  Do NOT export each clip separately.
 - All file paths must be relative to the project root (e.g. `media/video.mp4`).
 - Output files go in the `media/` directory.
 - Explain your creative decisions briefly.
 - Do NOT ask the user questions — just proceed with your best judgement.
 """
+
+
+def _get_llm_config() -> dict:
+    """
+    Resolve LLM configuration from environment variables.
+
+    LM Studio (preferred for local LLMs):
+        LM_STUDIO_API_BASE – e.g. "http://localhost:1234/v1"
+        LM_STUDIO_API_KEY  – optional, default is empty
+        LLM_MODEL          – model name WITHOUT prefix, e.g. "ibm/granite-4-h-tiny"
+                             (will be auto-prefixed to "lm_studio/ibm/granite-4-h-tiny")
+
+    Cloud providers (auto-detected from API key env vars):
+        GEMINI_API_KEY     → gemini/gemini-2.0-flash
+        OPENAI_API_KEY     → gpt-4o
+        ANTHROPIC_API_KEY  → anthropic/claude-sonnet-4-20250514
+
+    Explicit override:
+        LLM_MODEL          – full litellm model string with provider prefix
+        LLM_API_KEY        – API key
+    """
+    model = os.environ.get("LLM_MODEL", "")
+    api_key = os.environ.get("LLM_API_KEY", "")
+    lm_studio_base = os.environ.get("LM_STUDIO_API_BASE", "")
+
+    # LM Studio: if LM_STUDIO_API_BASE is set, use the lm_studio/ provider
+    if lm_studio_base:
+        if model and not model.startswith("lm_studio/"):
+            model = f"lm_studio/{model}"
+        elif not model:
+            model = "lm_studio/local-model"
+        api_key = api_key or os.environ.get("LM_STUDIO_API_KEY", "")
+        return {"model": model, "api_key": api_key}
+
+    # Auto-detect from well-known provider env vars if no explicit config
+    if not model:
+        if os.environ.get("GEMINI_API_KEY"):
+            model = "gemini/gemini-2.0-flash"
+            api_key = api_key or os.environ["GEMINI_API_KEY"]
+        elif os.environ.get("OPENAI_API_KEY"):
+            model = "gpt-4o"
+            api_key = api_key or os.environ["OPENAI_API_KEY"]
+        elif os.environ.get("ANTHROPIC_API_KEY"):
+            model = "anthropic/claude-sonnet-4-20250514"
+            api_key = api_key or os.environ["ANTHROPIC_API_KEY"]
+
+    return {"model": model, "api_key": api_key}
 
 
 class MCPVideoClient:
@@ -148,6 +205,30 @@ class MCPVideoClient:
             {"type": "message",    "text": "..."}
             {"type": "error",      "text": "..."}
         """
+        # Resolve final LLM config: UI values override env vars
+        env_cfg = _get_llm_config()
+        _model = model or env_cfg["model"]
+        _api_key = api_key or env_cfg.get("api_key") or None
+
+        # If the user passed an api_base via the UI, set it as LM_STUDIO_API_BASE
+        # so litellm's lm_studio provider picks it up
+        if api_base:
+            os.environ["LM_STUDIO_API_BASE"] = api_base
+            # Ensure model has lm_studio/ prefix when api_base is set via UI
+            if _model and not _model.startswith(("lm_studio/", "gemini/", "openai/", "anthropic/", "ollama/", "azure/")):
+                _model = f"lm_studio/{_model}"
+
+        if not _model:
+            yield {
+                "type": "error",
+                "text": (
+                    "No LLM model configured. Set LM_STUDIO_API_BASE + LLM_MODEL env vars, "
+                    "or set GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY, "
+                    "or enter values in the UI settings."
+                ),
+            }
+            return
+
         rel_path = os.path.relpath(video_path, str(VIDMAGIK_DIR))
 
         messages = [
@@ -161,25 +242,61 @@ class MCPVideoClient:
             },
         ]
 
-        # Auto-prefix model for LiteLLM when using a custom API base
-        # Users enter the model name as their server expects (e.g. "ibm/granite-4-h-tiny")
-        # but LiteLLM needs "openai/" prefix to know which API protocol to use
-        _model = model
-        if api_base and not model.startswith(("openai/", "anthropic/", "ollama/", "huggingface/")):
-            _model = f"openai/{model}"
+        # Build kwargs for litellm – only include non-None values
+        # NOTE: lm_studio provider reads LM_STUDIO_API_BASE from env,
+        # so we do NOT pass api_base as a kwarg.
+        llm_kwargs: dict = {
+            "model": _model,
+            "temperature": 0.3,
+        }
+        if _api_key:
+            llm_kwargs["api_key"] = _api_key
+        if self._openai_tools:
+            llm_kwargs["tools"] = self._openai_tools
+            llm_kwargs["tool_choice"] = "auto"
+
+        yield {
+            "type": "thinking",
+            "text": f"Using model: {_model}",
+        }
 
         # Loop until the LLM returns a final text response (no more tool calls)
         for _iteration in range(50):  # safety cap
             try:
                 response = await litellm.acompletion(
-                    model=_model,
                     messages=messages,
-                    tools=self._openai_tools if self._openai_tools else None,
-                    tool_choice="auto",
-                    api_base=api_base,
-                    api_key=api_key,
-                    temperature=0.3,
+                    **llm_kwargs,
                 )
+            except litellm.APIConnectionError as exc:
+                endpoint = _api_base or "default provider endpoint"
+                yield {
+                    "type": "error",
+                    "text": (
+                        f"Connection error: Cannot reach {endpoint}. "
+                        f"Make sure the LLM server is running and accessible. "
+                        f"Details: {exc}"
+                    ),
+                }
+                return
+            except litellm.AuthenticationError as exc:
+                yield {
+                    "type": "error",
+                    "text": (
+                        f"Authentication error: Invalid API key for model '{_model}'. "
+                        f"Check LLM_API_KEY env var or the API Key field in settings. "
+                        f"Details: {exc}"
+                    ),
+                }
+                return
+            except litellm.NotFoundError as exc:
+                yield {
+                    "type": "error",
+                    "text": (
+                        f"Model not found: '{_model}' is not available. "
+                        f"Check the model name. Details: {exc}"
+                    ),
+                }
+                return
             except Exception as exc:
                 yield {"type": "error", "text": f"LLM error: {exc}"}
                 return

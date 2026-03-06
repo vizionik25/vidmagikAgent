@@ -12,12 +12,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 ENV UV_COMPILE_BYTECODE=1
+# Pin uv to Python 3.13 — litellm is broken on 3.14
+ENV UV_PYTHON=3.13
 
 # Copy root project files (deps are in root pyproject.toml)
 COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies
-RUN uv sync --frozen --no-cache
+RUN uv sync --frozen --no-cache --python 3.13
 
 # Copy the full project (src/api/main.py for MCP server + src/app/ for frontend)
 COPY . .
