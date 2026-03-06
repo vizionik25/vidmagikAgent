@@ -1,6 +1,6 @@
 [project]
 name = "vidmagik-agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI-powered video editing agent that creates short-form content from any video"
 readme = "README.md"
 license = {text = "MIT"}
@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-vidmagik = "src.main:main"
+vidmagik_agent = "src.main:main"
 
 [build-system]
 requires = ["hatchling"]

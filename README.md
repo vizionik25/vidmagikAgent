@@ -18,6 +18,10 @@
 </p>
 
 ---
+***
+## Disclaimer - The Quality of the output video is dependant on the model you use plus your extra instructions although a model may handle tool calling very well it may not be able to produce high quality video edits in my experience its best to use a VLLM with a large context window and good reasoning capabilities or a fine tuned model for video editing tasks doesnt have to generate video just understand the context and make good decisions.
+***
+
 
 ## 📖 Overview
 
@@ -52,24 +56,34 @@ The project consists of three major components:
 | Requirement | Why |
 |---|---|
 | **Python** ≥ 3.13 | Runtime |
-| **[uv](https://docs.astral.sh/uv/)** | Package manager (recommended) |
 | **FFmpeg** | Video/audio encoding & decoding (used by MoviePy) |
 | **ImageMagick** | Text rendering (for `TextClip`) |
 
-### Install & Run
+### Install
+
+vidmagikAgent is published on [PyPI](https://pypi.org/project/vidmagik-agent/):
 
 ```bash
-# Clone the repo
-git clone https://github.com/vizionik25/vidmagikAgent.git
-cd vidmagikAgent
+# Install from PyPI
+pip install vidmagik-agent
 
-# Install all dependencies
-uv sync
-
-# Launch the AI Shorts Creator web app
-uv run src/app/main.py
-# → Opens at http://127.0.0.1:3000
+# Or with uv
+uv pip install vidmagik-agent
 ```
+
+This installs all dependencies and registers the `vidmagik` CLI command.
+
+### 🖥 CLI Usage
+
+After installing, launch the web app with a single command:
+
+```bash
+vidmagik
+```
+
+This starts the AI Shorts Creator web UI at **http://127.0.0.1:3000**.
+
+> **Note**: Python ≥ 3.13 is required. System dependencies (FFmpeg, ImageMagick) must be installed separately.
 
 ### Environment Variables (`.env`)
 
@@ -84,7 +98,7 @@ The system auto-detects your LLM provider from environment variables:
 | Variable | Example | Notes |
 |---|---|---|
 | `LM_STUDIO_API_BASE` | `http://localhost:1234/v1` | LM Studio local LLM (preferred) |
-| `LLM_MODEL` | `ibm/granite-4-h-tiny` | Model name (auto-prefixed for LM Studio) |
+| `LLM_MODEL` | `lm_studio/producer/model-name` | Model name  |
 | `GEMINI_API_KEY` | `your-gemini-key` | Auto-selects `gemini/gemini-2.0-flash` |
 | `OPENAI_API_KEY` | `sk-...` | Auto-selects `gpt-4o` |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` | Auto-selects `anthropic/claude-sonnet-4-20250514` |
@@ -239,13 +253,13 @@ The `MCPVideoClient` class handles the full lifecycle:
 The backend (`src/api/main.py`) is a [FastMCP](https://github.com/jlowin/fastmcp) server that wraps the entire MoviePy video editing library as MCP tools. It can run in three transport modes:
 
 ```bash
-# HTTP (default) — for standalone use or StreamableHTTP MCP clients
+# HTTP  — for standalone use or StreamableHTTP MCP clients
 uv run src/api/main.py --transport http --host 0.0.0.0 --port 8080
 
 # SSE — for Server-Sent Events MCP clients
 uv run src/api/main.py --transport sse
 
-# stdio — for subprocess-based MCP clients (used by the AI Shorts Creator locally)
+# stdio (default)— for subprocess-based MCP clients (used by the AI Shorts Creator locally)
 uv run src/api/main.py --transport stdio
 ```
 
@@ -568,6 +582,68 @@ asyncio_mode = "auto"
 
 ## 🛠 Development
 
+### Setting Up for Development
+
+```bash
+# Clone the repo
+git clone https://github.com/vizionik25/vidmagikAgent.git
+cd vidmagikAgent
+
+# Install all dependencies (including dev tools)
+uv sync
+```
+
+### Running from Source
+
+```bash
+# Launch the web app
+uv run src/app/main.py
+# → Opens at http://127.0.0.1:3000
+```
+
+### Running the MCP Server Standalone
+
+```bash
+# StreamableHTTP mode (for remote clients, Docker, or browser-based tools)
+uv run src/api/main.py --transport http --host 0.0.0.0 --port 8080
+
+# SSE mode (Server-Sent Events)
+uv run src/api/main.py --transport sse --host 0.0.0.0 --port 8080
+
+# stdio mode (default — for subprocess-based MCP clients)
+uv run src/api/main.py --transport stdio
+```
+
+**Server flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--transport` | `http` | Transport protocol: `stdio`, `sse`, or `http` |
+| `--host` | `0.0.0.0` | Bind address for HTTP/SSE modes |
+| `--port` | `8080` | Port for HTTP/SSE modes |
+
+### Running Tests
+
+```bash
+# All tests
+uv run pytest
+
+# With coverage report
+uv run pytest --cov=src --cov-report=term-missing
+
+# Specific test file
+uv run pytest tests/test_e2e.py -v
+```
+
+### Uploading Files to the MCP Server
+
+When the server is running in HTTP mode, you can upload files directly:
+
+```bash
+curl -X POST http://localhost:8080/upload -F "file=@/path/to/video.mp4"
+# → {"filename": "/app/video.mp4", "size": 12345678}
+```
+
 ### Adding a New Custom Effect
 
 1. Create `src/api/custom_fx/my_effect.py`:
@@ -593,32 +669,24 @@ class MyEffect(Effect):
 2. Export from `src/api/custom_fx/__init__.py`:
 
 ```python
-from .my_effect import MyEffect
+from .my_effect import MyEffect # add your effect here 
 ```
 
 3. Add MCP tool in `src/api/main.py`:
 
 ```python
+from custom_fx import MyEffect # be sure to add your effect to the custom_fx import
+
+# The tool name must start with vfx_ and end with _effect (this is how the frontend knows it's a video effect)
+# The tool must return the clip_id of the modified clip
+# The MCP Server File is quite large so please keep your orginization clean it makes it easier to find your code
+
 @mcp.tool
 def vfx_my_effect(clip_id: str, intensity: float = 1.0) -> str:
     """Description of your custom effect."""
     clip = get_clip(clip_id)
     return register_clip(clip.with_effects([MyEffect(intensity)]))
 ```
-
-### Server CLI Reference
-
-```
-usage: src/api/main.py [-h] [--transport {stdio,sse,http}] [--host HOST] [--port PORT]
-
-vidMagik MCP Server
-
-options:
-  --transport {stdio,sse,http}  Transport type (default: http)
-  --host HOST                   Host for HTTP/SSE (default: 0.0.0.0)
-  --port PORT                   Port for HTTP/SSE (default: 8080)
-```
-
 ---
 
 ## 📄 License
